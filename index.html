@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Timesheet</title>
+    <!-- Include PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Include simple styling -->
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+</head>
+<body>
+    <h1>📊 Project Timesheet</h1>
+    
+    <div id="table-container">
+        <p>Loading timesheet...</p>
+    </div>
+
+    <script>
+        // Fetch and parse your CSV file
+        fetch('Østerbrogade-156.csv')  // Note: rename without spaces
+            .then(response => response.text())
+            .then(csvText => {
+                PapaParse.parse(csvText, {
+                    header: true,
+                    complete: function(results) {
+                        displayTable(results.data);
+                    }
+                });
+            });
+
+        function displayTable(data) {
+            let html = '<table><thead><tr>';
+            
+            // Headers
+            if (data.length > 0) {
+                Object.keys(data[0]).forEach(key => {
+                    html += `<th>${key}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                // Rows
+                data.forEach(row => {
+                    html += '<tr>';
+                    Object.values(row).forEach(value => {
+                        html += `<td>${value || ''}</td>`;
+                    });
+                    html += '</tr>';
+                });
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('table-container').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
