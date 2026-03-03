@@ -8,77 +8,112 @@
 <body>
     <h1>📊 Project Timesheet</h1>
     
-    <div id="status"></div>
+    <div id="debug" style="background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px;">
+        <h3>🔍 Debug Information</h3>
+        <p><strong>Current page URL:</strong> <span id="page-url"></span></p>
+        <p><strong>Trying to fetch:</strong> <span id="fetch-attempt"></span></p>
+        <p><strong>Status:</strong> <span id="status">Checking...</span></p>
+    </div>
+    
     <div id="table-container">
         <p>Loading timesheet...</p>
     </div>
 
     <script>
-        const statusDiv = document.getElementById('status');
+        // Display current page URL
+        document.getElementById('page-url').textContent = window.location.href;
         
-        // Try multiple possible filenames
-        const possibleFilenames = [
-            'Østerbrogade 156.csv',      // Original with space
-            'Østerbrogade%20156.csv',     // URL encoded
-            'Østerbrogade-156.csv',       // With dash
-            'timesheet.csv',               // Generic name
-            './Østerbrogade 156.csv',      // With ./ prefix
-            '/Østerbrogade 156.csv'        // With / prefix
+        // Try different paths
+        const pathsToTry = [
+            'Østerbrogade 156.csv',                    // Same folder
+            './Østerbrogade 156.csv',                   // Explicit same folder
+            'data/Østerbrogade 156.csv',                // Data subfolder
+            'docs/Østerbrogade 156.csv',                // Docs subfolder
+            'timesheet.csv',                             // Simple name
+            window.location.pathname.replace(/[^/]*$/, '') + 'Østerbrogade 156.csv'  // Same folder as HTML
         ];
         
-        function tryFetch(index) {
-            if (index >= possibleFilenames.length) {
-                statusDiv.innerHTML = '❌ Could not find CSV file. Tried all possibilities.';
+        let currentTry = 0;
+        
+        function tryNextPath() {
+            if (currentTry >= pathsToTry.length) {
+                document.getElementById('status').innerHTML = 
+                    '❌ Failed - no valid path found. Check console for details.';
                 return;
             }
             
-            const filename = possibleFilenames[index];
-            statusDiv.innerHTML = `Trying: ${filename}...`;
+            const path = pathsToTry[currentTry];
+            document.getElementById('fetch-attempt').textContent = path;
+            document.getElementById('status').innerHTML = `Trying path ${currentTry + 1}/${pathsToTry.length}: ${path}`;
             
-            fetch(filename)
+            console.log(`Trying path: ${path}`);
+            
+            fetch(path)
                 .then(response => {
+                    console.log(`Response for ${path}:`, response);
                     if (!response.ok) {
-                        throw new Error(`Not found (${response.status})`);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     return response.text();
                 })
                 .then(csvText => {
-                    statusDiv.innerHTML = `✅ Found file: ${filename}`;
+                    console.log(`Success! Found file at: ${path}`);
+                    console.log(`CSV preview:`, csvText.substring(0, 200));
+                    
+                    document.getElementById('status').innerHTML = 
+                        `✅ SUCCESS! Found file at: <strong>${path}</strong>`;
+                    
+                    // Parse and display
                     PapaParse.parse(csvText, {
                         header: true,
+                        skipEmptyLines: true,
                         complete: function(results) {
                             displayTable(results.data);
                         },
                         error: function(error) {
-                            statusDiv.innerHTML += `<br>❌ Parse error: ${error}`;
+                            document.getElementById('status').innerHTML += 
+                                `<br>❌ Parse error: ${error}`;
                         }
                     });
                 })
                 .catch(error => {
-                    // Try next filename
-                    tryFetch(index + 1);
+                    console.log(`Failed for ${path}:`, error.message);
+                    currentTry++;
+                    tryNextPath();
                 });
         }
         
-        // Start trying filenames
-        tryFetch(0);
+        // Start trying paths
+        tryNextPath();
 
         function displayTable(data) {
+            if (!data || data.length === 0) {
+                document.getElementById('table-container').innerHTML = 
+                    '<p>⚠️ No data found in CSV file</p>';
+                return;
+            }
+            
             let html = '<table><thead><tr>';
             
-            if (data.length > 0) {
-                Object.keys(data[0]).forEach(key => {
-                    html += `<th>${key}</th>`;
-                });
-                html += '</tr></thead><tbody>';
-                
-                data.forEach(row => {
+            // Headers
+            Object.keys(data[0]).forEach(key => {
+                html += `<th>${key || 'Column'}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // Data rows
+            data.forEach((row, index) => {
+                if (index < 100) {  // Limit to 100 rows
                     html += '<tr>';
                     Object.values(row).forEach(value => {
                         html += `<td>${value || ''}</td>`;
                     });
                     html += '</tr>';
-                });
+                }
+            });
+            
+            if (data.length > 100) {
+                html += `<tr><td colspan="100">... and ${data.length - 100} more rows</td></tr>`;
             }
             
             html += '</tbody></table>';
