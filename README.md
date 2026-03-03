@@ -1,13 +1,10 @@
-## Time Tracking
-I maintain a detailed timesheet of my work on this project:
+# Time Registration for Østerbrogade 156
 
-- <a href="Østerbrogade%20156.csv" download>📊 Download Excel Timesheet</a>
-- [📈 View as CSV](Østerbrogade%20156.csv)
+- [📥 Download Østerbrogade 156.csv](https://axiomengineeringaps.github.io/Time-Registrering/Østerbrogade%20156.csv)
+- [👁️ Se Østerbrogade 156.csv i browser](https://axiomengineeringaps.github.io/Time-Registrering/)
 
-## Summary of Hours
-| Period | Hours Worked |
-|--------|--------------|
-| Jan 7-14 | 18t 15min |
-| Jan 31 - Feb 6 | 38t |
+## 📊 Opsummering
 
-
+| Periode | Timer brugt |
+|---------|-------------|
+| 2026-01-01 – 2026-02-28 | 53 |
