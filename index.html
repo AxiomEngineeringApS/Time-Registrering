@@ -1,57 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CSV Viewer</title>
+    <title>Excel Viewer</title>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        #csv-content { margin-top: 20px; }
+        #excel-content { margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>CSV Data Viewer</h1>
-    <div id="csv-content">Loading...</div>
+    <h1>Excel Data Viewer</h1>
+    <div id="excel-content">Loading...</div>
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- Add SheetJS (xlsx) library for Excel parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <script>
-        // Load and parse CSV file
-        Papa.parse('Østerbrogade 156.csv', {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            complete: function(results) {
-                // Create HTML table
-                var table = '<table id="csv-table" class="display" style="width:100%"><thead><tr>';
-                
-                // Add headers
-                results.meta.fields.forEach(function(field) {
-                    table += '<th>' + field + '</th>';
+        // Function to load and parse Excel file
+        function loadExcelFile() {
+            fetch('Østerbrogade 156.xlsx')
+                .then(response => response.arrayBuffer())
+                .then(data => {
+                    // Parse Excel data using SheetJS
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first sheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Convert to JSON (with headers)
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (jsonData.length > 0) {
+                        // Extract headers (first row)
+                        const headers = jsonData[0];
+                        
+                        // Extract data rows (remaining rows)
+                        const rows = jsonData.slice(1);
+                        
+                        // Create HTML table
+                        var table = '<table id="excel-table" class="display" style="width:100%"><thead><tr>';
+                        
+                        // Add headers
+                        headers.forEach(function(header) {
+                            table += '<th>' + (header || '') + '</th>';
+                        });
+                        table += '</tr></thead><tbody>';
+                        
+                        // Add data rows
+                        rows.forEach(function(row) {
+                            table += '<tr>';
+                            headers.forEach(function(header, index) {
+                                table += '<td>' + (row[index] !== undefined ? row[index] : '') + '</td>';
+                            });
+                            table += '</tr>';
+                        });
+                        table += '</tbody></table>';
+                        
+                        // Display table
+                        document.getElementById('excel-content').innerHTML = table;
+                        
+                        // Initialize DataTable for sorting, searching, etc.
+                        $('#excel-table').DataTable({
+                            pageLength: 50,
+                            order: [],
+                            scrollX: true // Enable horizontal scrolling for wide tables
+                        });
+                    } else {
+                        document.getElementById('excel-content').innerHTML = 'Excel file is empty';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading Excel file:', error);
+                    document.getElementById('excel-content').innerHTML = 'Error loading Excel file: ' + error.message;
                 });
-                table += '</tr></thead><tbody>';
-                
-                // Add data rows
-                results.data.forEach(function(row) {
-                    table += '<tr>';
-                    results.meta.fields.forEach(function(field) {
-                        table += '<td>' + (row[field] !== null ? row[field] : '') + '</td>';
-                    });
-                    table += '</tr>';
-                });
-                table += '</tbody></table>';
-                
-                // Display table
-                document.getElementById('csv-content').innerHTML = table;
-                
-                // Initialize DataTable for sorting, searching, etc.
-                $('#csv-table').DataTable({
-                    pageLength: 50,
-                    order: []
-                });
-            }
-        });
+        }
+
+        // Load the Excel file when page loads
+        loadExcelFile();
     </script>
 </body>
 </html>
