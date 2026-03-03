@@ -5,12 +5,12 @@
 
 ## 📊 Opsummering
 
-| Periode | Timer brugt [S] |
+| Periode | Timer brugt i timer |
 |---------|-------------|
 | 2026-01-01 – 2026-02-28 | 53 |
 
 ## Uge opsummering efter 2026-02-28
 
-| Uge | dato | Timer brugt i [S] |
+| Uge | dato | Timer brugt i timer |
 |-----|------|-------------|
-| 9   | 2026-02-23 – 2026-02-29 |  |
+| 9   | 2026-02-23 – 2026-02-29 | - |
