@@ -1,124 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Timesheet</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <title>CSV Viewer</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #csv-content { margin-top: 20px; }
+    </style>
 </head>
 <body>
-    <h1>📊 Project Timesheet</h1>
-    
-    <div id="debug" style="background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px;">
-        <h3>🔍 Debug Information</h3>
-        <p><strong>Current page URL:</strong> <span id="page-url"></span></p>
-        <p><strong>Trying to fetch:</strong> <span id="fetch-attempt"></span></p>
-        <p><strong>Status:</strong> <span id="status">Checking...</span></p>
-    </div>
-    
-    <div id="table-container">
-        <p>Loading timesheet...</p>
-    </div>
+    <h1>CSV Data Viewer</h1>
+    <div id="csv-content">Loading...</div>
 
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
     <script>
-        // Display current page URL
-        document.getElementById('page-url').textContent = window.location.href;
-        
-        // Try different paths
-        const pathsToTry = [
-            'Østerbrogade 156.csv',                    // Same folder
-            './Østerbrogade 156.csv',                   // Explicit same folder
-            'data/Østerbrogade 156.csv',                // Data subfolder
-            'docs/Østerbrogade 156.csv',                // Docs subfolder
-            'timesheet.csv',                             // Simple name
-            window.location.pathname.replace(/[^/]*$/, '') + 'Østerbrogade 156.csv'  // Same folder as HTML
-        ];
-        
-        let currentTry = 0;
-        
-        function tryNextPath() {
-            if (currentTry >= pathsToTry.length) {
-                document.getElementById('status').innerHTML = 
-                    '❌ Failed - no valid path found. Check console for details.';
-                return;
-            }
-            
-            const path = pathsToTry[currentTry];
-            document.getElementById('fetch-attempt').textContent = path;
-            document.getElementById('status').innerHTML = `Trying path ${currentTry + 1}/${pathsToTry.length}: ${path}`;
-            
-            console.log(`Trying path: ${path}`);
-            
-            fetch(path)
-                .then(response => {
-                    console.log(`Response for ${path}:`, response);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    return response.text();
-                })
-                .then(csvText => {
-                    console.log(`Success! Found file at: ${path}`);
-                    console.log(`CSV preview:`, csvText.substring(0, 200));
-                    
-                    document.getElementById('status').innerHTML = 
-                        `✅ SUCCESS! Found file at: <strong>${path}</strong>`;
-                    
-                    // Parse and display
-                    PapaParse.parse(csvText, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function(results) {
-                            displayTable(results.data);
-                        },
-                        error: function(error) {
-                            document.getElementById('status').innerHTML += 
-                                `<br>❌ Parse error: ${error}`;
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.log(`Failed for ${path}:`, error.message);
-                    currentTry++;
-                    tryNextPath();
+        // Load and parse CSV file
+        Papa.parse('Østerbrogade 156.csv', {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                // Create HTML table
+                var table = '<table id="csv-table" class="display" style="width:100%"><thead><tr>';
+                
+                // Add headers
+                results.meta.fields.forEach(function(field) {
+                    table += '<th>' + field + '</th>';
                 });
-        }
-        
-        // Start trying paths
-        tryNextPath();
-
-        function displayTable(data) {
-            if (!data || data.length === 0) {
-                document.getElementById('table-container').innerHTML = 
-                    '<p>⚠️ No data found in CSV file</p>';
-                return;
-            }
-            
-            let html = '<table><thead><tr>';
-            
-            // Headers
-            Object.keys(data[0]).forEach(key => {
-                html += `<th>${key || 'Column'}</th>`;
-            });
-            html += '</tr></thead><tbody>';
-            
-            // Data rows
-            data.forEach((row, index) => {
-                if (index < 100) {  // Limit to 100 rows
-                    html += '<tr>';
-                    Object.values(row).forEach(value => {
-                        html += `<td>${value || ''}</td>`;
+                table += '</tr></thead><tbody>';
+                
+                // Add data rows
+                results.data.forEach(function(row) {
+                    table += '<tr>';
+                    results.meta.fields.forEach(function(field) {
+                        table += '<td>' + (row[field] !== null ? row[field] : '') + '</td>';
                     });
-                    html += '</tr>';
-                }
-            });
-            
-            if (data.length > 100) {
-                html += `<tr><td colspan="100">... and ${data.length - 100} more rows</td></tr>`;
+                    table += '</tr>';
+                });
+                table += '</tbody></table>';
+                
+                // Display table
+                document.getElementById('csv-content').innerHTML = table;
+                
+                // Initialize DataTable for sorting, searching, etc.
+                $('#csv-table').DataTable({
+                    pageLength: 25,
+                    order: []
+                });
             }
-            
-            html += '</tbody></table>';
-            document.getElementById('table-container').innerHTML = html;
-        }
+        });
     </script>
 </body>
 </html>
