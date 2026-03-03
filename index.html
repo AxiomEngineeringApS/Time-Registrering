@@ -2,42 +2,76 @@
 <html>
 <head>
     <title>My Timesheet</title>
-    <!-- Include PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- Include simple styling -->
     <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
 </head>
 <body>
     <h1>📊 Project Timesheet</h1>
     
+    <div id="status"></div>
     <div id="table-container">
         <p>Loading timesheet...</p>
     </div>
 
     <script>
-        // Fetch and parse your CSV file
-        fetch('Østerbrogade-156.csv')  // Note: rename without spaces
-            .then(response => response.text())
-            .then(csvText => {
-                PapaParse.parse(csvText, {
-                    header: true,
-                    complete: function(results) {
-                        displayTable(results.data);
+        const statusDiv = document.getElementById('status');
+        
+        // Try multiple possible filenames
+        const possibleFilenames = [
+            'Østerbrogade 156.csv',      // Original with space
+            'Østerbrogade%20156.csv',     // URL encoded
+            'Østerbrogade-156.csv',       // With dash
+            'timesheet.csv',               // Generic name
+            './Østerbrogade 156.csv',      // With ./ prefix
+            '/Østerbrogade 156.csv'        // With / prefix
+        ];
+        
+        function tryFetch(index) {
+            if (index >= possibleFilenames.length) {
+                statusDiv.innerHTML = '❌ Could not find CSV file. Tried all possibilities.';
+                return;
+            }
+            
+            const filename = possibleFilenames[index];
+            statusDiv.innerHTML = `Trying: ${filename}...`;
+            
+            fetch(filename)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Not found (${response.status})`);
                     }
+                    return response.text();
+                })
+                .then(csvText => {
+                    statusDiv.innerHTML = `✅ Found file: ${filename}`;
+                    PapaParse.parse(csvText, {
+                        header: true,
+                        complete: function(results) {
+                            displayTable(results.data);
+                        },
+                        error: function(error) {
+                            statusDiv.innerHTML += `<br>❌ Parse error: ${error}`;
+                        }
+                    });
+                })
+                .catch(error => {
+                    // Try next filename
+                    tryFetch(index + 1);
                 });
-            });
+        }
+        
+        // Start trying filenames
+        tryFetch(0);
 
         function displayTable(data) {
             let html = '<table><thead><tr>';
             
-            // Headers
             if (data.length > 0) {
                 Object.keys(data[0]).forEach(key => {
                     html += `<th>${key}</th>`;
                 });
                 html += '</tr></thead><tbody>';
                 
-                // Rows
                 data.forEach(row => {
                     html += '<tr>';
                     Object.values(row).forEach(value => {
