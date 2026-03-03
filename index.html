@@ -6,6 +6,10 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
         #excel-content { margin-top: 20px; }
+        .date-cell { 
+            white-space: nowrap; /* Prevents date wrapping */
+            font-family: monospace; /* Consistent formatting for dates */
+        }
     </style>
 </head>
 <body>
@@ -18,20 +22,74 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <script>
+        // Function to detect if a value looks like a date in your specific format
+        function isDateFormat(value) {
+            if (typeof value !== 'string') return false;
+            
+            // Check for patterns like: "07/Jan", "08/Jan", "(15-30)-01", etc.
+            const datePatterns = [
+                /^\d{2}\/[A-Za-z]{3}$/,           // 07/Jan, 08/Jan
+                /^\(\d{2}-\d{2}\)-\d{2}$/,         // (15-30)-01
+                /^\d{2}\/[A-Za-z]{3}$/,            // 31/Jan
+                /^\d{1,2}\s*[-/]\s*[A-Za-z]{3}$/i  // More flexible pattern for day-month formats
+            ];
+            
+            return datePatterns.some(pattern => pattern.test(value));
+        }
+
+        // Function to format Excel date numbers to your desired format
+        function formatExcelDate(excelDate) {
+            if (!excelDate) return '';
+            
+            try {
+                // Handle if it's an Excel serial number (days since 1900-01-01)
+                if (typeof excelDate === 'number' && excelDate > 0) {
+                    const date = new Date((excelDate - 25569) * 86400 * 1000);
+                    if (!isNaN(date.getTime())) {
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const month = date.toLocaleString('en-US', { month: 'short' });
+                        return `${day}/${month}`;
+                    }
+                }
+                
+                // If it's already a string, preserve it as is
+                if (typeof excelDate === 'string') {
+                    // Clean up the string (remove extra spaces)
+                    return excelDate.trim();
+                }
+                
+                return excelDate;
+            } catch (e) {
+                return excelDate;
+            }
+        }
+
         // Function to load and parse Excel file
         function loadExcelFile() {
             fetch('Østerbrogade 156.xlsx')
-                .then(response => response.arrayBuffer())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('File not found or unable to load');
+                    }
+                    return response.arrayBuffer();
+                })
                 .then(data => {
-                    // Parse Excel data using SheetJS
-                    const workbook = XLSX.read(data, { type: 'array' });
+                    // Parse Excel data using SheetJS with date handling options
+                    const workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellDates: true, // This helps with date parsing
+                        dateNF: 'dd/mm/yyyy' // Date format
+                    });
                     
                     // Get first sheet
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     
-                    // Convert to JSON (with headers)
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    // Convert to JSON (with headers) but preserve raw values
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                        header: 1,
+                        raw: false // Get formatted values
+                    });
                     
                     if (jsonData.length > 0) {
                         // Extract headers (first row)
@@ -49,11 +107,25 @@
                         });
                         table += '</tr></thead><tbody>';
                         
-                        // Add data rows
+                        // Add data rows with special handling for dates
                         rows.forEach(function(row) {
                             table += '<tr>';
                             headers.forEach(function(header, index) {
-                                table += '<td>' + (row[index] !== undefined ? row[index] : '') + '</td>';
+                                let cellValue = row[index] !== undefined ? row[index] : '';
+                                
+                                // Check if this value looks like a date in your format
+                                if (isDateFormat(cellValue)) {
+                                    // Add a special class for date cells
+                                    table += '<td class="date-cell">' + cellValue + '</td>';
+                                } else {
+                                    // Try to format as date if it's an Excel date number
+                                    const formattedDate = formatExcelDate(cellValue);
+                                    if (formattedDate !== cellValue && isDateFormat(formattedDate)) {
+                                        table += '<td class="date-cell">' + formattedDate + '</td>';
+                                    } else {
+                                        table += '<td>' + cellValue + '</td>';
+                                    }
+                                }
                             });
                             table += '</tr>';
                         });
@@ -66,7 +138,33 @@
                         $('#excel-table').DataTable({
                             pageLength: 50,
                             order: [],
-                            scrollX: true // Enable horizontal scrolling for wide tables
+                            scrollX: true, // Enable horizontal scrolling for wide tables
+                            columnDefs: [
+                                {
+                                    targets: '_all',
+                                    render: function(data, type, row) {
+                                        // For sorting purposes, if it's a date in your format, try to convert to sortable value
+                                        if (type === 'sort' && isDateFormat(data)) {
+                                            // Extract day and month for sorting
+                                            const match = data.match(/(\d{1,2})[/-]?([A-Za-z]{3})?/);
+                                            if (match) {
+                                                const day = match[1].padStart(2, '0');
+                                                const month = match[2] || '';
+                                                // Create a sortable string (month priority then day)
+                                                const monthOrder = {
+                                                    'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+                                                    'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+                                                    'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+                                                };
+                                                if (monthOrder[month]) {
+                                                    return monthOrder[month] + day;
+                                                }
+                                            }
+                                        }
+                                        return data;
+                                    }
+                                }
+                            ]
                         });
                     } else {
                         document.getElementById('excel-content').innerHTML = 'Excel file is empty';
